@@ -15,9 +15,23 @@ export default function ChessGame({ gameId }: ChessGameProps) {
     const [chess] = useState(new Chess());
     const [fen, setFen] = useState(chess.fen());
     const [orientation, setOrientation] = useState<'white' | 'black'>('white');
+    const [playerId, setPlayerId] = useState<string>('');
+    const [playerColor, setPlayerColor] = useState<'white' | 'black' | null>(null);
 
-    // Fetch initial state
+    // Generate or retrieve player ID
     useEffect(() => {
+        let id = localStorage.getItem('chess_player_id');
+        if (!id) {
+            id = crypto.randomUUID();
+            localStorage.setItem('chess_player_id', id);
+        }
+        setPlayerId(id);
+    }, []);
+
+    // Fetch initial state and assign player
+    useEffect(() => {
+        if (!playerId) return;
+
         const fetchGame = async () => {
             const { data, error } = await supabase
                 .from('games')
@@ -31,6 +45,34 @@ export default function ChessGame({ gameId }: ChessGameProps) {
                 if (data.pgn) {
                     chess.loadPgn(data.pgn);
                     setFen(chess.fen());
+                }
+
+                // Assign player to a color if not already assigned
+                if (!data.player_white) {
+                    // First player joins as white
+                    await supabase
+                        .from('games')
+                        .update({ player_white: playerId })
+                        .eq('id', gameId);
+                    setPlayerColor('white');
+                    setOrientation('white');
+                } else if (data.player_white === playerId) {
+                    setPlayerColor('white');
+                    setOrientation('white');
+                } else if (!data.player_black) {
+                    // Second player joins as black
+                    await supabase
+                        .from('games')
+                        .update({ player_black: playerId })
+                        .eq('id', gameId);
+                    setPlayerColor('black');
+                    setOrientation('black');
+                } else if (data.player_black === playerId) {
+                    setPlayerColor('black');
+                    setOrientation('black');
+                } else {
+                    // Spectator mode
+                    setPlayerColor(null);
                 }
             } else if (error) {
                 console.error('Failed to load game:', error);
@@ -60,7 +102,7 @@ export default function ChessGame({ gameId }: ChessGameProps) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [gameId, chess]);
+    }, [gameId, chess, playerId]);
 
     // Handle Move
     function onDrop({ sourceSquare, targetSquare }: { piece: any; sourceSquare: string; targetSquare: string | null }): boolean {
@@ -68,6 +110,16 @@ export default function ChessGame({ gameId }: ChessGameProps) {
 
         // Reject if piece dropped off board
         if (!targetSquare) {
+            return false;
+        }
+
+        // Check if it's this player's turn
+        const currentTurn = chess.turn(); // 'w' or 'b'
+        const canMove = (currentTurn === 'w' && playerColor === 'white') ||
+            (currentTurn === 'b' && playerColor === 'black');
+
+        if (!canMove) {
+            console.log('Not your turn or not your piece');
             return false;
         }
 
@@ -130,6 +182,11 @@ export default function ChessGame({ gameId }: ChessGameProps) {
                 />
             </div>
             <div className="flex gap-4 text-white">
+                {playerColor && (
+                    <div className="p-2 bg-blue-700 rounded">
+                        You are: <span className="font-bold capitalize">{playerColor}</span>
+                    </div>
+                )}
                 <div className="p-2 bg-neutral-800 rounded">
                     Status: <span className="font-bold">{game.status}</span>
                 </div>
