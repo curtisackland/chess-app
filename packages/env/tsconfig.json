@@ -1,3 +1,0 @@
-{
-  "extends": "@chess-app/config/tsconfig.base.json"
-}

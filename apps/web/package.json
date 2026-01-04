@@ -10,12 +10,10 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
-    "@chess-app/auth": "workspace:*",
     "@chess-app/env": "workspace:*",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-form": "^1.27.3",
     "babel-plugin-react-compiler": "^1.0.0",
-    "better-auth": "catalog:",
     "chess.js": "^1.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
